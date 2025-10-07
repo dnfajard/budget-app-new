@@ -1,7 +1,23 @@
 import React, { useState } from 'react';
 
+const CATEGORIES = ['Utilities', 'Housing', 'Transportation', 'Food', 'Entertainment'];
+
+const CATEGORY_ICONS = {
+  Housing: '🏠',
+  Utilities: '⚡',
+  default: '📶'
+};
+
+const STATUS_CONFIG = {
+  expensive: { class: 'bg-danger', text: 'Expensive', check: (bill) => bill.amount > 500 },
+  due_soon: { class: 'bg-warning text-dark', text: 'Due Soon' },
+  paid: { class: 'bg-success', text: 'Paid' },
+  pending: { class: 'bg-secondary', text: 'Pending' }
+};
+
 const Bills = ({ bills, setBills, alternatives }) => {
   const [showAddForm, setShowAddForm] = useState(false);
+  const [editingBill, setEditingBill] = useState(null);
   const [newBill, setNewBill] = useState({
     name: '',
     amount: '',
@@ -11,12 +27,13 @@ const Bills = ({ bills, setBills, alternatives }) => {
 
   const handleAddBill = (e) => {
     e.preventDefault();
+    const amount = parseFloat(newBill.amount);
     const bill = {
-      bill_id: Math.max(...bills.map(b => b.bill_id)) + 1,
+      bill_id: Math.max(0, ...bills.map(b => b.bill_id)) + 1,
       user_id: 1,
       ...newBill,
-      amount: parseFloat(newBill.amount),
-      isExpensive: parseFloat(newBill.amount) > 500,
+      amount,
+      isExpensive: amount > 500,
       status: 'pending'
     };
     setBills([...bills, bill]);
@@ -24,19 +41,49 @@ const Bills = ({ bills, setBills, alternatives }) => {
     setShowAddForm(false);
   };
 
-  const getBadgeClass = (bill) => {
-    if (bill.isExpensive) return 'bg-danger';
-    if (bill.status === 'due_soon') return 'bg-warning text-dark';
-    if (bill.status === 'paid') return 'bg-success';
-    return 'bg-secondary';
+  const handleEditClick = (bill) => {
+    setEditingBill({
+      ...bill,
+      amount: bill.amount.toString()
+    });
   };
 
-  const getBadgeText = (bill) => {
-    if (bill.isExpensive) return 'Expensive';
-    if (bill.status === 'due_soon') return 'Due Soon';
-    if (bill.status === 'paid') return 'Paid';
-    return 'Pending';
+  const handleSaveEdit = () => {
+    const amount = parseFloat(editingBill.amount);
+    const updatedBill = {
+      ...editingBill,
+      amount,
+      isExpensive: amount > 500
+    };
+    
+    setBills(bills.map(b => 
+      b.bill_id === updatedBill.bill_id ? updatedBill : b
+    ));
+    setEditingBill(null);
   };
+
+  const handleCancelEdit = () => {
+    setEditingBill(null);
+  };
+
+  const updateField = (field, value) => {
+    setNewBill(prev => ({ ...prev, [field]: value }));
+  };
+
+  const updateEditField = (field, value) => {
+    setEditingBill(prev => ({ ...prev, [field]: value }));
+  };
+
+  const getBillStatus = (bill) => {
+    if (bill.isExpensive) return STATUS_CONFIG.expensive;
+    return STATUS_CONFIG[bill.status] || STATUS_CONFIG.pending;
+  };
+
+  const getCategoryIcon = (category) => {
+    return CATEGORY_ICONS[category] || CATEGORY_ICONS.default;
+  };
+
+  const totalSavings = alternatives.reduce((sum, alt) => sum + alt.est_saving, 0);
 
   return (
     <div className="container mt-4">
@@ -65,7 +112,7 @@ const Bills = ({ bills, setBills, alternatives }) => {
                 <div className="card bg-light mb-4">
                   <div className="card-body">
                     <h6>Add New Bill</h6>
-                    <form onSubmit={handleAddBill}>
+                    <div>
                       <div className="row">
                         <div className="col-md-6 mb-3">
                           <input
@@ -73,7 +120,7 @@ const Bills = ({ bills, setBills, alternatives }) => {
                             className="form-control"
                             placeholder="Bill Name"
                             value={newBill.name}
-                            onChange={(e) => setNewBill({...newBill, name: e.target.value})}
+                            onChange={(e) => updateField('name', e.target.value)}
                             required
                           />
                         </div>
@@ -83,7 +130,7 @@ const Bills = ({ bills, setBills, alternatives }) => {
                             className="form-control"
                             placeholder="Amount"
                             value={newBill.amount}
-                            onChange={(e) => setNewBill({...newBill, amount: e.target.value})}
+                            onChange={(e) => updateField('amount', e.target.value)}
                             required
                           />
                         </div>
@@ -91,13 +138,11 @@ const Bills = ({ bills, setBills, alternatives }) => {
                           <select
                             className="form-select"
                             value={newBill.category}
-                            onChange={(e) => setNewBill({...newBill, category: e.target.value})}
+                            onChange={(e) => updateField('category', e.target.value)}
                           >
-                            <option value="Utilities">Utilities</option>
-                            <option value="Housing">Housing</option>
-                            <option value="Transportation">Transportation</option>
-                            <option value="Food">Food</option>
-                            <option value="Entertainment">Entertainment</option>
+                            {CATEGORIES.map(cat => (
+                              <option key={cat} value={cat}>{cat}</option>
+                            ))}
                           </select>
                         </div>
                         <div className="col-md-6 mb-3">
@@ -105,12 +150,18 @@ const Bills = ({ bills, setBills, alternatives }) => {
                             type="date"
                             className="form-control"
                             value={newBill.due_date}
-                            onChange={(e) => setNewBill({...newBill, due_date: e.target.value})}
+                            onChange={(e) => updateField('due_date', e.target.value)}
                             required
                           />
                         </div>
                         <div className="col-12">
-                          <button type="submit" className="btn btn-success me-2">Add Bill</button>
+                          <button 
+                            type="button"
+                            className="btn btn-success me-2"
+                            onClick={handleAddBill}
+                          >
+                            Add Bill
+                          </button>
                           <button 
                             type="button" 
                             className="btn btn-secondary"
@@ -120,7 +171,7 @@ const Bills = ({ bills, setBills, alternatives }) => {
                           </button>
                         </div>
                       </div>
-                    </form>
+                    </div>
                   </div>
                 </div>
               )}
@@ -138,26 +189,98 @@ const Bills = ({ bills, setBills, alternatives }) => {
                     </tr>
                   </thead>
                   <tbody>
-                    {bills.map(bill => (
-                      <tr key={bill.bill_id}>
-                        <td>
-                          <div className="d-flex align-items-center">
-                            <span className="me-2">
-                              {bill.category === 'Housing' ? '🏠' : bill.category === 'Utilities' ? '⚡' : '📶'}
-                            </span>
-                            {bill.name}
-                          </div>
-                        </td>
-                        <td><span className="badge bg-primary">{bill.category}</span></td>
-                        <td><strong>${bill.amount.toFixed(2)}</strong></td>
-                        <td>{new Date(bill.due_date).toLocaleDateString()}</td>
-                        <td><span className={`badge ${getBadgeClass(bill)}`}>{getBadgeText(bill)}</span></td>
-                        <td>
-                          <button className="btn btn-sm btn-outline-secondary me-1">Edit</button>
-                          <button className="btn btn-sm btn-success">Pay</button>
-                        </td>
-                      </tr>
-                    ))}
+                    {bills.map(bill => {
+                      const status = getBillStatus(bill);
+                      const isEditing = editingBill && editingBill.bill_id === bill.bill_id;
+                      
+                      return (
+                        <tr key={bill.bill_id}>
+                          <td>
+                            {isEditing ? (
+                              <input
+                                type="text"
+                                className="form-control form-control-sm"
+                                value={editingBill.name}
+                                onChange={(e) => updateEditField('name', e.target.value)}
+                              />
+                            ) : (
+                              <div className="d-flex align-items-center">
+                                <span className="me-2">{getCategoryIcon(bill.category)}</span>
+                                {bill.name}
+                              </div>
+                            )}
+                          </td>
+                          <td>
+                            {isEditing ? (
+                              <select
+                                className="form-select form-select-sm"
+                                value={editingBill.category}
+                                onChange={(e) => updateEditField('category', e.target.value)}
+                              >
+                                {CATEGORIES.map(cat => (
+                                  <option key={cat} value={cat}>{cat}</option>
+                                ))}
+                              </select>
+                            ) : (
+                              <span className="badge bg-primary">{bill.category}</span>
+                            )}
+                          </td>
+                          <td>
+                            {isEditing ? (
+                              <input
+                                type="number"
+                                className="form-control form-control-sm"
+                                value={editingBill.amount}
+                                onChange={(e) => updateEditField('amount', e.target.value)}
+                              />
+                            ) : (
+                              <strong>${bill.amount.toFixed(2)}</strong>
+                            )}
+                          </td>
+                          <td>
+                            {isEditing ? (
+                              <input
+                                type="date"
+                                className="form-control form-control-sm"
+                                value={editingBill.due_date}
+                                onChange={(e) => updateEditField('due_date', e.target.value)}
+                              />
+                            ) : (
+                              new Date(bill.due_date).toLocaleDateString()
+                            )}
+                          </td>
+                          <td><span className={`badge ${status.class}`}>{status.text}</span></td>
+                          <td>
+                            {isEditing ? (
+                              <>
+                                <button 
+                                  className="btn btn-sm btn-success me-1"
+                                  onClick={handleSaveEdit}
+                                >
+                                  Save
+                                </button>
+                                <button 
+                                  className="btn btn-sm btn-secondary"
+                                  onClick={handleCancelEdit}
+                                >
+                                  Cancel
+                                </button>
+                              </>
+                            ) : (
+                              <>
+                                <button 
+                                  className="btn btn-sm btn-outline-secondary me-1"
+                                  onClick={() => handleEditClick(bill)}
+                                >
+                                  Edit
+                                </button>
+                                <button className="btn btn-sm btn-success">Pay</button>
+                              </>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
@@ -182,7 +305,7 @@ const Bills = ({ bills, setBills, alternatives }) => {
               
               <div className="text-center mt-3">
                 <small className="text-muted">
-                  Total potential savings: <strong className="text-success">$40/month</strong>
+                  Total potential savings: <strong className="text-success">${totalSavings}/month</strong>
                 </small>
               </div>
             </div>
